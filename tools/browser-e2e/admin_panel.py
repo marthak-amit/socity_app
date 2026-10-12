@@ -1,0 +1,42 @@
+import asyncio, sys
+from playwright.async_api import async_playwright
+
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path=os.environ.get("CHROME_PATH") or None, args=["--no-sandbox"])
+        page = await b.new_page(viewport={"width": 1280, "height": 800})
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        await page.goto("http://localhost:5173")
+        await page.fill("input[inputmode=tel]", "9800000001")
+        await page.click("text=Send code")
+        await page.wait_for_selector("input[inputmode=numeric]")
+        await page.click("button:has-text('Sign in')")
+        await page.wait_for_selector("text=Platform overview")
+        await page.screenshot(path="admin_dashboard.png")
+        print("dashboard text:", (await page.inner_text("main"))[:300].replace("\n", " | "))
+        await page.click("text=Societies")
+        await page.wait_for_selector("text=Green Valley Residency")
+        await page.screenshot(path="admin_societies.png")
+        # suspend Sunrise Heights
+        row = page.locator("tr", has_text="Sunrise Heights")
+        await row.get_by_role("button", name="Suspend").click()
+        await page.fill("textarea", "Demo suspension for testing")
+        await page.get_by_role("dialog").get_by_role("button", name="Suspend").click()
+        await page.wait_for_selector("tr:has-text('Sunrise Heights') >> text=suspended")
+        await page.screenshot(path="admin_suspended.png")
+        await page.locator("tr", has_text="Sunrise Heights").get_by_role("button", name="Reinstate").click()
+        await page.get_by_role("dialog").get_by_role("button", name="Reinstate").click()
+        await page.wait_for_selector("tr:has-text('Sunrise Heights') >> text=active")
+        await page.click("text=Flagged orders")
+        await page.wait_for_selector("text=Duplicate UTR")
+        await page.screenshot(path="admin_flagged.png")
+        print("flagged rows:", await page.locator("tbody tr").count())
+        await page.click("text=Audit logs")
+        await page.wait_for_selector("text=Order approved")
+        await page.screenshot(path="admin_audit.png")
+        print("audit rows:", await page.locator("tbody tr").count())
+        print("console/page errors:", errors)
+        await b.close()
+asyncio.run(main())

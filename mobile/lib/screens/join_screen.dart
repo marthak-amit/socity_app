@@ -76,7 +76,7 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
         if (mounted) context.go('/');
       } else {
         toast(context, t('join.sent'), tone: Tone.success);
-        context.go('/onboarding?add=1');
+        context.go('/onboarding'); // no `add`: lands on tabs if you already belong somewhere
       }
     } catch (e) {
       if (mounted) setState(() => _error = errorText(t, e));

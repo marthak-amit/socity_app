@@ -369,6 +369,7 @@ const Map<String, String> stringsEn = {
   'eventForm.saved': 'Event saved',
   'eventForm.selectDays': 'Select days',
   'eventAdmin.status': 'Status',
+  'eventAdmin.viewEvent': 'View event page',
   'eventAdmin.publish': 'Publish',
   'eventAdmin.publishConfirm': 'Publish this event? All members will be notified.',
   'eventAdmin.close': 'Close booking',

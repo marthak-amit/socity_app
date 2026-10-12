@@ -104,7 +104,17 @@ class _ScanTabState extends ConsumerState<ScanTab> {
           MobileScanner(
             controller: _controller,
             onDetect: (c) => _onDetect(c, current, sid),
-            errorBuilder: (context, error) => EmptyState(icon: Icons.camera_alt_outlined, title: t('scan.permission'), action: AppButton(t('scan.grant'), onPressed: () => _controller.start(), expand: false)),
+            errorBuilder: (context, error) => Container(
+              color: Colors.black,
+              padding: const EdgeInsets.all(32),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.no_photography_outlined, size: 48, color: Colors.white70),
+                const SizedBox(height: 12),
+                Text(t('scan.permission'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                const SizedBox(height: 16),
+                AppButton(t('scan.grant'), onPressed: () => _controller.start(), expand: false),
+              ]),
+            ),
           ),
           Positioned(
             top: 0,

@@ -89,7 +89,7 @@ class _EventAdminScreenState extends ConsumerState<EventAdminScreen> {
               const SizedBox(width: 8),
               Expanded(child: AppButton(t('eventAdmin.report'), icon: Icons.bar_chart, variant: 'secondary', onPressed: () => context.push('/manage/report/${ev.id}'))),
             ]),
-            AppButton(t('event.getPasses'), icon: Icons.visibility_outlined, variant: 'ghost', onPressed: () => context.push('/event/${ev.id}')),
+            AppButton(t('eventAdmin.viewEvent'), icon: Icons.visibility_outlined, variant: 'ghost', onPressed: () => context.push('/event/${ev.id}')),
             if (ev.status == 'draft') AppButton(t('eventAdmin.publish'), icon: Icons.rocket_launch, loading: _busy, onPressed: () => _transition(sid, 'publish', confirm: t('eventAdmin.publishConfirm'))),
             if (ev.status == 'published') AppButton(t('eventAdmin.close'), icon: Icons.lock_outline, variant: 'secondary', onPressed: () => _transition(sid, 'close')),
             if (ev.status == 'closed') AppButton(t('eventAdmin.reopen'), icon: Icons.lock_open, variant: 'secondary', onPressed: () => _transition(sid, 'reopen')),
