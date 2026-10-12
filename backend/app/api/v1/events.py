@@ -11,17 +11,41 @@ from app.core.db import get_session
 from app.core.deps import SocietyContext, require_role
 from app.core.errors import bad_request, conflict, not_found
 from app.models import (
-    Event, EventDay, Membership, Order, OrderItem, Pass, PassScan, PassTier, PassTierDay, User,
+    Event,
+    EventDay,
+    Membership,
+    Order,
+    OrderItem,
+    Pass,
+    PassScan,
+    PassTier,
+    PassTierDay,
+    User,
     VolunteerAssignment,
 )
 from app.models.enums import EventStatus, MembershipStatus, OrderStatus, Role, UploadPurpose, ValidDays
 from app.schemas.common import Msg, Page, PageParams
 from app.schemas.events import (
-    DayIn, DayOut, EventCreate, EventOut, EventUpdate, TierIn, TierOut, TierUpdate, VolunteerIn, VolunteerOut,
+    DayIn,
+    DayOut,
+    EventCreate,
+    EventOut,
+    EventUpdate,
+    TierIn,
+    TierOut,
+    TierUpdate,
+    VolunteerIn,
+    VolunteerOut,
 )
 from app.services.audit import audit
 from app.services.events import (
-    VOLUNTEER_GRACE, default_days, events_out, load_event, society_tz, tier_usage, validate_tier_days,
+    VOLUNTEER_GRACE,
+    default_days,
+    events_out,
+    load_event,
+    society_tz,
+    tier_usage,
+    validate_tier_days,
 )
 from app.services.payments import get_provider
 from app.services.push import push

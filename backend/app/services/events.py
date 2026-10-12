@@ -44,11 +44,15 @@ async def load_event(session: AsyncSession, society_id: uuid.UUID, event_id: uui
 
 
 def live_order_filter():
-    """Orders that currently hold capacity: approved, or pending and younger than the TTL."""
+    """Orders that currently hold capacity: approved; pending with payment proof submitted (waiting on an admin —
+    never expires on the member); or pending without proof and younger than the TTL."""
     cutoff = datetime.now(UTC) - timedelta(hours=get_settings().pending_order_ttl_hours)
     return or_(
         Order.status == OrderStatus.APPROVED.value,
-        and_(Order.status == OrderStatus.PENDING.value, Order.created_at > cutoff),
+        and_(
+            Order.status == OrderStatus.PENDING.value,
+            or_(Order.payment_submitted_at.is_not(None), Order.created_at > cutoff),
+        ),
     )
 
 
