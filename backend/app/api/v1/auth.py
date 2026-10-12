@@ -112,6 +112,8 @@ async def verify_otp(body: OtpVerify, request: Request, session: AsyncSession = 
         user = User(phone=phone, is_super_admin=phone in settings.super_admin_phone_list)
         session.add(user)
         await session.flush()
+    if phone in settings.super_admin_phone_list:
+        user.is_super_admin = True  # SUPER_ADMIN_PHONES bootstraps platform admins (also upgrades existing users)
     user.last_login_at = now
     return await _issue_tokens(session, user, is_new)
 

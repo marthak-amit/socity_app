@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    admin,
     auth,
     events,
     gallery,
@@ -28,5 +29,6 @@ api_router.include_router(passes.router)
 api_router.include_router(scan.router)
 api_router.include_router(reports.router)
 api_router.include_router(gallery.router)
+api_router.include_router(admin.router)
 if get_settings().storage_backend == "local":
     api_router.include_router(local_storage.router)
