@@ -18,3 +18,6 @@ extend-exclude = ["alembic/versions"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["B008", "E501", "UP042"]  # B008: FastAPI Depends() defaults are idiomatic
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E702", "B007"]
