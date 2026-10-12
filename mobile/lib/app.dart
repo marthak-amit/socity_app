@@ -8,7 +8,6 @@ import 'core/push.dart';
 import 'l10n/strings.dart';
 import 'router.dart';
 import 'state/auth.dart';
-import 'state/providers.dart';
 
 ThemeData buildTheme(String lang) {
   final base = ThemeData(
@@ -61,11 +60,10 @@ class _SocietyPassAppState extends ConsumerState<SocietyPassApp> {
     final loggedIn = ref.watch(authProvider.select((s) => s.loggedIn));
     final router = ref.watch(routerProvider);
 
-    // Keep the stored active society valid, register for pushes after sign-in.
-    ref.listen(activeSocietyProvider, (_, a) {
-      final id = a.societyId;
-      if (a.me != null && id != ref.read(authProvider).activeSocietyId) ref.read(authProvider.notifier).setActiveSociety(id);
-    });
+    // The active society is *derived* (activeSocietyProvider): the stored id if still valid, else the first active
+    // membership. Nothing writes auth state from a listener (that caused circular rebuilds); we only persist an
+    // explicit choice (switcher / create / join).
+    // Register for pushes after sign-in.
     ref.listen(authProvider.select((s) => s.loggedIn), (_, v) {
       if (v) ref.read(pushServiceProvider).start(router);
     });

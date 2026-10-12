@@ -131,7 +131,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       final j = await ref.read(apiProvider).request('POST', '/auth/otp/verify', body: {'phone': widget.phone, 'code': code}, auth: false) as Json;
       await ref.read(authProvider.notifier).setSession(j['access_token'], j['refresh_token'], User.fromJson(j['user']));
       ref.read(dataVersionProvider.notifier).bump();
-      // the router's redirect now moves us on (profile setup → onboarding/tabs)
+      // Reset to a clean stack (the OTP page was pushed on top of login); the redirect then picks
+      // profile setup → onboarding → tabs.
+      if (mounted) context.go('/');
     } catch (e) {
       if (mounted) setState(() => _error = errorText(t, e));
     } finally {
@@ -205,6 +207,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       final me = Me.fromJson(await ref.read(apiProvider).patch('/me', {'name': _name.text.trim()}));
       await ref.read(authProvider.notifier).setUser(me.user);
       ref.read(dataVersionProvider.notifier).bump();
+      if (mounted) context.go('/');
     } catch (e) {
       if (mounted) setState(() => _error = errorText(t, e));
     } finally {
