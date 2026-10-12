@@ -30,7 +30,7 @@ async def test_scan_flow_green_then_red_with_live_counters(client):
     # the other pass is still fresh
     assert (await w["vol"].post(scan_url(w), {"qr_token": p2["qr_token"]})).json()["counters"]["scanned_today"] == 2
     stats = (await w["vol"].get(f"/societies/{w['s']['id']}/events/{w['ev']['id']}/scan-stats")).json()
-    assert stats["sold"] == 2 and stats["today"]["scanned"] == 2 and stats["by_tier"][0]["scanned_today"] == 2
+    assert stats["sold"] == 2 and stats["today"]["scanned"] == 2 and next(t for t in stats["by_tier"] if t["name"] == "Family")["scanned_today"] == 2
     recent = (await w["vol"].get(f"/societies/{w['s']['id']}/events/{w['ev']['id']}/scans")).json()
     assert recent["total"] == 2 and recent["items"][0]["gate"] is None
     # the pass shows as used in the owner's app

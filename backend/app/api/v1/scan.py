@@ -77,7 +77,7 @@ async def scan_stats(
         select(PassTier.id, PassTier.name, func.count(func.distinct(Pass.id)).filter(Pass.status == PassStatus.ACTIVE.value),
                func.count(PassScan.id).filter(PassScan.event_day_id == (day.id if day else None)))
         .select_from(PassTier).outerjoin(Pass, Pass.tier_id == PassTier.id).outerjoin(PassScan, PassScan.pass_id == Pass.id)
-        .where(PassTier.event_id == ev.id).group_by(PassTier.id, PassTier.name, PassTier.sort_order).order_by(PassTier.sort_order)
+        .where(PassTier.event_id == ev.id).group_by(PassTier.id, PassTier.name, PassTier.sort_order, PassTier.price).order_by(PassTier.sort_order, PassTier.price, PassTier.name)
     )).all()
     return ScanStats(sold=sold, today=today, days=stats,
                      by_tier=[TierScanStat(tier_id=r[0], name=r[1], sold=r[2], scanned_today=r[3]) for r in rows])

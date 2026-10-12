@@ -41,7 +41,7 @@ async def build_report(session: AsyncSession, ev: Event) -> EventReport:
         select(func.count(func.distinct(PassScan.pass_id))).join(Pass, Pass.id == PassScan.pass_id).where(Pass.event_id == ev.id))
 
     # --- by tier
-    tiers = (await session.scalars(select(PassTier).where(PassTier.event_id == ev.id).order_by(PassTier.sort_order, PassTier.price))).all()
+    tiers = (await session.scalars(select(PassTier).where(PassTier.event_id == ev.id).order_by(PassTier.sort_order, PassTier.price, PassTier.name))).all()
     usage = await tier_usage(session, [x.id for x in tiers])
     collected = dict((await session.execute(
         select(OrderItem.tier_id, func.coalesce(func.sum(OrderItem.qty * OrderItem.unit_price), 0))
