@@ -6,6 +6,6 @@
 - [x] **M4** Orders, screenshot upload, approval queue, flags, pass generation, signed QR
 - [x] **M5** Scanning, counters, reports + XLSX export
 - [x] **M6** Gallery + moderation + thumbnails
-- [ ] **M7** Mobile app
+- [x] **M7** Mobile app
 - [ ] **M8** Super-admin web panel
 - [ ] **M9** Full test pass, seed data, README, API docs
