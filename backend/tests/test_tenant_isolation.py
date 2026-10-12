@@ -78,8 +78,8 @@ PUBLIC_SOCIETY_ROUTES: set[tuple[str, str]] = set()  # none: nothing under /soci
 def society_routes():
     schema = app.openapi()
     for path, ops in schema["paths"].items():
-        if "{society_id}" not in path:
-            continue
+        if "{society_id}" not in path or path.startswith("/api/v1/admin/"):
+            continue  # /admin/* is the platform API (super-admin only; tested in test_admin.py)
         for method in ops:
             if method in ("get", "post", "patch", "put", "delete"):
                 yield method.upper(), path
