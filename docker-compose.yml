@@ -1,0 +1,70 @@
+# Local dev stack:  cp .env.example .env && docker compose up --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-societypass}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-societypass}
+      POSTGRES_DB: ${POSTGRES_DB:-societypass}
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-societypass}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [miniodata:/data]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: create buckets; the public bucket allows anonymous GET (unguessable keys), private stays private.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio: {condition: service_healthy}
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_PUBLIC_BUCKET: ${S3_PUBLIC_BUCKET:-societypass-public}
+      S3_PRIVATE_BUCKET: ${S3_PRIVATE_BUCKET:-societypass-private}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY &&
+      mc mb --ignore-existing local/$$S3_PUBLIC_BUCKET local/$$S3_PRIVATE_BUCKET &&
+      mc anonymous set download local/$$S3_PUBLIC_BUCKET &&
+      mc admin config set local api cors_allow_origin='*' >/dev/null 2>&1 || true;
+      echo buckets ready"
+
+  api:
+    build: ./backend
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-societypass}:${POSTGRES_PASSWORD:-societypass}@postgres:5432/${POSTGRES_DB:-societypass}
+    depends_on:
+      postgres: {condition: service_healthy}
+      minio-init: {condition: service_completed_successfully}
+    ports: ["8000:8000"]
+    volumes: ["./backend:/app"]
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  web:
+    build: ./admin-web
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
+    ports: ["5173:5173"]
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  miniodata:
