@@ -56,7 +56,8 @@ class Settings(BaseSettings):
 
     # --- platform ---
     super_admin_phones: str = ""
-    expo_push_url: str = "https://exp.host/--/api/v2/push/send"
+    push_provider: str = "log"  # log | fcm
+    fcm_service_account_file: str = ""  # Firebase service-account JSON (for push_provider=fcm)
     default_country_code: str = "+91"
 
     @field_validator("database_url")

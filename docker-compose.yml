@@ -20,19 +20,15 @@ services:
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"   # lets the Flutter web build PUT presigned uploads straight to MinIO
     ports: ["9000:9000", "9001:9001"]
     volumes: [miniodata:/data]
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
 
-  # One-shot: create buckets; the public bucket allows anonymous GET (unguessable keys), private stays private.
+  # One-shot: waits for MinIO, creates the buckets. The public bucket allows anonymous GET (unguessable keys);
+  # the private bucket (payment screenshots, raw uploads) stays private and is only reachable via presigned URLs.
   minio-init:
     image: minio/mc:latest
-    depends_on:
-      minio: {condition: service_healthy}
+    depends_on: [minio]
     environment:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
@@ -40,10 +36,9 @@ services:
       S3_PRIVATE_BUCKET: ${S3_PRIVATE_BUCKET:-societypass-private}
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://minio:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY &&
+      until mc alias set local http://minio:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY >/dev/null 2>&1; do echo waiting for minio; sleep 2; done &&
       mc mb --ignore-existing local/$$S3_PUBLIC_BUCKET local/$$S3_PRIVATE_BUCKET &&
       mc anonymous set download local/$$S3_PUBLIC_BUCKET &&
-      mc admin config set local api cors_allow_origin='*' >/dev/null 2>&1 || true;
       echo buckets ready"
 
   api:

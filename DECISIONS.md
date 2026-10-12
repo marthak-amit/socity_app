@@ -46,3 +46,87 @@ Decisions made autonomously while building (newest at bottom of each section).
   conscious trade-off — anyone holding a URL can view that image. Payment screenshots never go there.
 - A `local` storage backend (filesystem, served by the API with HMAC-signed URLs) exists for dev/tests so the stack runs
   without MinIO.
+
+## Mobile: Flutter (changed mid-build at the owner's request)
+- The first mobile implementation was Expo/React Native; it was **replaced by a Flutter app** (`/mobile`) with the same
+  feature set. Nothing server-side depended on Expo except push, which moved to **FCM** (see below).
+- State: **Riverpod 3** (`Notifier`/`FutureProvider`) + **go_router**. No code generation (plain Dart models) so
+  `flutter pub get && flutter run` is all that's needed.
+- Data freshness: a single `dataVersionProvider` is bumped after every mutation; every query provider and paged list
+  watches it. Simple, predictable invalidation — chosen over per-query cache keys for an MVP-sized API.
+- "Active society" is **derived** (stored id if still an active membership, else the first one). Writing auth state from
+  a provider listener caused circular rebuilds and broken navigation (found by a real-browser run), so only explicit
+  choices (switcher / create / join) are persisted.
+- Offline "My Passes": the pass list is cached in `shared_preferences` per user on every successful fetch; on a
+  network error the screen falls back to the cache and shows an "offline" banner. QR codes render purely from the cached
+  signed token, so entry works with no signal. Scanning itself needs the API (the server is the only verifier).
+- i18n: a small key→string table (`en` complete, `hi`/`gu` for the core flows, English fallback) with `{{placeholder}}`
+  interpolation — chosen over ARB codegen to keep the toolchain trivial. Unit tests enforce that every `t('key')` used in
+  code exists in English and that hi/gu keys/placeholders match. Noto Sans (Latin / Gujarati / Devanagari) via `google_fonts`.
+- UPI: the app opens the `upi://pay?...` link the API builds (payee, amount, note = order reference). Android 11+ needs
+  the `<queries>` entry for the `upi` scheme (added); iOS lists UPI schemes in `LSApplicationQueriesSchemes`.
+- Release builds must use HTTPS: cleartext HTTP is enabled only in Android debug/profile manifests.
+- Verification: unit + widget tests, a **live-API contract test** (Dart client + models vs a running seeded backend), and
+  the app was also built for web and driven end-to-end in headless Chromium (login → buy → proof → admin approve → QR).
+  Android/iOS binaries were not built in this environment (no SDKs).
+
+## Push notifications
+- Server side is a `PushProvider` interface: `log` (default in dev) and `fcm` (Firebase Cloud Messaging **HTTP v1**,
+  service-account OAuth done with PyJWT — no firebase-admin dependency). Unregistered tokens are pruned automatically.
+- Sends happen in `BackgroundTasks` with their own DB session, never inside the request transaction.
+- The Flutter app registers its FCM token at `POST /me/push-tokens` and degrades gracefully when Firebase isn't configured.
+- Events: join request / approved / rejected, order approved / rejected / expired, event published / cancelled,
+  "event tomorrow" reminder (in-process hourly-ish job with an atomic claim so multiple workers don't double send),
+  volunteer assigned, gallery awaiting review, society suspended.
+
+## Payments & orders
+- `PaymentProvider` interface; `manual_upi` is live, `razorpay` is a documented stub (not registrable on events).
+- Flow = **create order → pay in any UPI app → submit proof (screenshot and/or 12-digit UTR) → admin review**. Orders
+  only enter the admin queue once proof is submitted (`payment_submitted_at`).
+- Capacity is reserved from order creation: approved orders + pending orders that either have proof submitted or are
+  younger than 48 h. **Unpaid** orders older than 48 h stop holding seats (lazily in every capacity query, and
+  physically by a periodic job → `cancelled`, reason `expired`). Orders waiting on an admin never expire on the member.
+- Seat accounting is race-free: tier rows are locked (`FOR UPDATE`, deterministic order) while an order is created;
+  a test fires concurrent orders at the last seat.
+- Auto-flags (stored on the order): `duplicate_utr` (platform-wide, flags the earlier order too), `amount_mismatch`
+  (member's declared amount ≠ total), `missing_utr` (screenshot only). **Bulk approve skips flagged orders** unless the
+  admin explicitly forces them; a single approve of a flagged order is allowed (admin's call) and audited with the flags.
+- Free events / free tiers: orders with total 0 are auto-approved and passes issued immediately.
+
+## Passes, QR & scanning
+- QR token = `v1.<base64url(JSON{p: pass_id, e: event_id, n: nonce})>.<base64url(HMAC-SHA256)>` using `QR_SECRET`
+  (constant-time compare). The DB row must also match the token, the pass must belong to the *scanner's* society, and be
+  `active` with an `approved` order — so a pass from another society is indistinguishable from a forgery.
+- Scan rules (server): pass valid for the event → event not cancelled/draft → today (society timezone) is an event day
+  (an event running past midnight keeps the previous day for 2 h) → tier valid that day → one scan per pass per day via a
+  unique constraint + `INSERT … ON CONFLICT DO NOTHING` (race-free; concurrent scans admit exactly once).
+  Idempotent retries: an optional client-generated `client_ref` makes a retried request return the original "OK".
+- Volunteers may scan only events they're assigned to; the assignment expires at event end + 6 h (and follows edits to
+  the event end). Admins/owners can scan any event of their society.
+- Live counters (scanned today / expected today / sold) come back with every scan and from `scan-stats`.
+
+## Gallery
+- Admin uploads are auto-approved; member uploads wait for moderation (cap of 50 pending per member). Thumbnails (480 px)
+  and the full image (≤2048 px) are produced server-side with Pillow; **all EXIF/GPS is stripped** (re-encode to JPEG).
+- Event galleries open to members only after the event ends (admins always); the society-wide gallery lists everything approved.
+
+## Super admin
+- Platform admins are `users.is_super_admin` (seeded via `SUPER_ADMIN_PHONES` on login or `python -m app.cli`).
+  They have **no implicit society access** (society routes still 404 for them) and the platform API deliberately never
+  returns payment screenshots.
+- The web panel stores its session in `localStorage` (acceptable for an internal tool; put it behind SSO/VPN in production).
+
+## Testing
+- Backend: pytest + httpx against **real PostgreSQL** with the schema built by the actual Alembic migrations; every
+  society-scoped route is discovered from the OpenAPI schema and swept for (a) 401 without auth, (b) 404 for non-members,
+  (c) 403 for pending members — new routes are covered automatically. Object-level tests prove cross-tenant IDs can't be
+  addressed through another society's URL. The S3 storage code path is exercised against an in-process `moto` S3 server.
+- Only the *shape* of the migration is regenerated with `alembic revision --autogenerate`; a test run downgrades to base and
+  upgrades to head every time.
+
+## Known limitations (MVP)
+- No ownership transfer; "owner" can't be reassigned through the API.
+- No refunds flow (cancelled events tell admins refunds are manual).
+- Gate scanning needs connectivity (by design — the server is the single source of truth for "already scanned").
+- The in-process job loop runs in every API worker; claims are atomic but a dedicated worker/cron is better at scale.
+- OTP delivery for MSG91 is a thin stub (DLT template registration and delivery webhooks are TODO).
